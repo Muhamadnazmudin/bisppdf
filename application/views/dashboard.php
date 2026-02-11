@@ -52,23 +52,23 @@
             <p>Konversi gambar JPG atau PNG menjadi PDF.</p>
         </a>
 
-        <!-- PDF to Word (Disabled) -->
-        <div class="tool-card disabled">
-            <div class="icon word">
-                <i class="fas fa-file-word"></i>
-            </div>
-            <h4>PDF to Word</h4>
-            <p>Segera hadir.</p>
-        </div>
+       <!-- PDF to Word -->
+<a href="<?= base_url('pdf/pdf_to_word') ?>" class="tool-card">
+    <div class="icon word">
+        <i class="fas fa-file-word"></i>
+    </div>
+    <h4>PDF to Word</h4>
+    <p>Konversi file PDF menjadi dokumen Word (.docx).</p>
+</a>
 
-        <!-- Word to PDF (Disabled) -->
-        <div class="tool-card disabled">
-            <div class="icon pdf">
-                <i class="fas fa-file-pdf"></i>
-            </div>
-            <h4>Word to PDF</h4>
-            <p>Segera hadir.</p>
-        </div>
+<!-- Word to PDF -->
+<a href="<?= base_url('pdf/word_to_pdf') ?>" class="tool-card">
+    <div class="icon pdf">
+        <i class="fas fa-file-pdf"></i>
+    </div>
+    <h4>Word to PDF</h4>
+    <p>Ubah dokumen Word menjadi file PDF.</p>
+</a>
 
     </div>
 
