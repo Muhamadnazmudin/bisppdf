@@ -62,65 +62,90 @@ class Pdf extends CI_Controller {
     $this->load->view('pdf/merge');
     $this->load->view('layout/footer');
 }
-
 public function process_merge()
 {
+    // validasi minimal file
     if (empty($_FILES['pdf']['name'][0])) {
-        show_error('Minimal upload 2 file PDF');
+        echo json_encode([
+            'success' => false,
+            'message' => 'Minimal upload 2 file PDF'
+        ]);
+        return;
     }
 
-    $upload_path = FCPATH.'storage/uploads/';
-    $output_path = FCPATH.'storage/outputs/';
+    $upload_path = FCPATH . 'storage/uploads/';
+    $output_path = FCPATH . 'storage/outputs/';
     $files = $_FILES['pdf'];
     $pdfs  = [];
 
+    // pastikan folder ada
+    if (!is_dir($upload_path)) {
+        mkdir($upload_path, 0777, true);
+    }
+    if (!is_dir($output_path)) {
+        mkdir($output_path, 0777, true);
+    }
+
+    // upload satu per satu
     for ($i = 0; $i < count($files['name']); $i++) {
 
-        // validasi MIME sederhana
+        // validasi MIME (simple & aman)
         if ($files['type'][$i] !== 'application/pdf') {
             continue;
         }
 
-        $new_name = uniqid('pdf_').'.pdf';
-        $target   = $upload_path.$new_name;
+        $new_name = uniqid('pdf_') . '.pdf';
+        $target   = $upload_path . $new_name;
 
         if (move_uploaded_file($files['tmp_name'][$i], $target)) {
+            // penting: escapeshellarg untuk Windows
             $pdfs[] = escapeshellarg($target);
         }
     }
 
     if (count($pdfs) < 2) {
-        show_error('Minimal 2 file PDF valid');
+        echo json_encode([
+            'success' => false,
+            'message' => 'Minimal 2 file PDF valid'
+        ]);
+        return;
     }
 
-    $output = $output_path.'merged_'.time().'.pdf';
+    // output file
+    $output_name = 'merged_' . time() . '.pdf';
+    $output_file = $output_path . $output_name;
 
-    // PATH GHOSTSCRIPT (pakai yg sama)
+    // PATH GHOSTSCRIPT (WINDOWS)
     $gs = '"C:\Program Files\gs\gs10.06.0\bin\gswin64c.exe"';
 
-    $cmd = $gs.' -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite '.
-           '-sOutputFile='.escapeshellarg($output).' '.
-           implode(' ', $pdfs);
+    // command merge
+    $cmd = $gs
+        . ' -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite '
+        . '-sOutputFile=' . escapeshellarg($output_file) . ' '
+        . implode(' ', $pdfs);
 
     exec($cmd, $out, $ret);
 
-    // cleanup upload
+    // hapus file upload sementara
     foreach ($pdfs as $f) {
         @unlink(trim($f, "'"));
     }
 
-    if ($ret !== 0 || !file_exists($output)) {
-        show_error('Gagal merge PDF');
+    if ($ret !== 0 || !file_exists($output_file)) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Gagal merge PDF'
+        ]);
+        return;
     }
 
-    // auto download
-    header('Content-Type: application/pdf');
-    header('Content-Disposition: attachment; filename="merged.pdf"');
-    readfile($output);
-
-    @unlink($output);
-    exit;
+    // SUKSES → JSON (TIDAK DOWNLOAD LANGSUNG)
+    echo json_encode([
+        'success'      => true,
+        'download_url' => base_url('pdf/download/' . $output_name)
+    ]);
 }
+
 public function split()
 {
     $data['title'] = 'Split PDF';
@@ -152,41 +177,79 @@ public function process_split()
         show_error($this->upload->display_errors());
     }
 
-    $file   = $this->upload->data();
-    $input  = $file['full_path'];
-    $output = FCPATH.'storage/outputs/split_'.time().'.pdf';
+    $file  = $this->upload->data();
+    $input = $file['full_path'];
 
-    // PATH GHOSTSCRIPT
-    $gs = '"C:\Program Files\gs\gs10.06.0\bin\gswin64c.exe"';
-
-    // contoh range: 1-3, 5
-    if (strpos($range, '-') !== false) {
-        list($start, $end) = explode('-', $range);
-        $cmd = $gs." -sDEVICE=pdfwrite -dNOPAUSE -dBATCH -dQUIET ".
-               "-dFirstPage={$start} -dLastPage={$end} ".
-               "-sOutputFile=\"{$output}\" \"{$input}\"";
-    } else {
-        $cmd = $gs." -sDEVICE=pdfwrite -dNOPAUSE -dBATCH -dQUIET ".
-               "-dFirstPage={$range} -dLastPage={$range} ".
-               "-sOutputFile=\"{$output}\" \"{$input}\"";
+    $output_dir = FCPATH.'storage/outputs/';
+    if (!is_dir($output_dir)) {
+        mkdir($output_dir, 0777, true);
     }
 
-    exec($cmd, $out, $ret);
+    // PATH GHOSTSCRIPT (WINDOWS)
+    $gs = '"C:\Program Files\gs\gs10.06.0\bin\gswin64c.exe"';
 
-    if ($ret !== 0 || !file_exists($output)) {
+    $ranges = array_map('trim', explode(',', $range));
+    $temp_files = [];
+
+    foreach ($ranges as $i => $r) {
+
+        if (preg_match('/^\d+$/', $r)) {
+            $start = $end = (int)$r;
+        } elseif (preg_match('/^(\d+)-(\d+)$/', $r, $m)) {
+            $start = (int)$m[1];
+            $end   = (int)$m[2];
+        } else {
+            continue; // skip invalid
+        }
+
+        $temp = $output_dir.'split_tmp_'.$i.'.pdf';
+
+        $cmd = $gs
+            .' -sDEVICE=pdfwrite -dNOPAUSE -dBATCH -dQUIET '
+            .'-dFirstPage='.$start.' -dLastPage='.$end.' '
+            .'-sOutputFile='.escapeshellarg($temp).' '
+            .escapeshellarg($input);
+
+        exec($cmd, $out, $ret);
+
+        if ($ret === 0 && file_exists($temp)) {
+            $temp_files[] = escapeshellarg($temp);
+        }
+    }
+
+    if (empty($temp_files)) {
+        show_error('Range halaman tidak valid');
+    }
+
+    // MERGE hasil split
+    $final = $output_dir.'split_'.time().'.pdf';
+
+    $merge_cmd = $gs
+        .' -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite '
+        .'-sOutputFile='.escapeshellarg($final).' '
+        .implode(' ', $temp_files);
+
+    exec($merge_cmd, $out, $ret);
+
+    // cleanup temp
+    foreach ($temp_files as $f) {
+        @unlink(trim($f, "'"));
+    }
+    @unlink($input);
+
+    if ($ret !== 0 || !file_exists($final)) {
         show_error('Gagal split PDF');
     }
 
     // auto download
     header('Content-Type: application/pdf');
     header('Content-Disposition: attachment; filename="split.pdf"');
-    readfile($output);
+    readfile($final);
 
-    // cleanup
-    @unlink($input);
-    @unlink($output);
+    @unlink($final);
     exit;
 }
+
 public function rotate()
 {
     $data['title'] = 'Rotate PDF';
@@ -488,5 +551,19 @@ public function process_word_to_pdf()
     @unlink($output);
     exit;
 }
+public function download($filename)
+{
+    $path = FCPATH . 'storage/outputs/' . $filename;
+
+    if (!file_exists($path)) {
+        show_error('File tidak ditemukan');
+    }
+
+    $this->load->helper('download');
+
+    // force download dengan header benar
+    force_download($path, NULL);
+}
+
 
 }
