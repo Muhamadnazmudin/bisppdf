@@ -1,9 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
+<!DOCTYPE html>
+<html lang="id">
 <head>
     <meta charset="utf-8">
-    <title><?= $title ?? 'BISP PDF Tools' ?></title>
+    <title><?= isset($title) ? $title . ' | BISP PDF Cilimus' : 'BISP PDF Cilimus - Tools PDF Sekolah' ?></title>
+    
     <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- SEO -->
+    <meta name="description" content="<?= isset($description) ? $description : 'BISP PDF adalah aplikasi pengolah PDF resmi SMK Cilimus. Gabungkan, pisahkan, kompres dan konversi PDF dengan cepat dan mudah untuk kebutuhan administrasi sekolah.' ?>">
+    
+    <meta name="keywords" content="PDF sekolah, merge PDF, split PDF, kompres PDF, convert PDF, SMK Cilimus">
+    <meta name="author" content="SMK Cilimus">
+
+    <!-- Open Graph (Preview WhatsApp / Share) -->
+    <meta property="og:title" content="<?= isset($title) ? $title . ' | BISP PDF Cilimus' : 'BISP PDF Cilimus' ?>">
+    <meta property="og:description" content="<?= isset($description) ? $description : 'Tools PDF resmi sekolah untuk kebutuhan administrasi dan pembelajaran.' ?>">
+    <meta property="og:url" content="<?= current_url() ?>">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="<?= base_url('assets/img/logo.png') ?>">
 
     <!-- Font & Icon -->
     <link href="<?= base_url('assets/sbadmin2/vendor/fontawesome-free/css/all.min.css') ?>" rel="stylesheet">
@@ -14,6 +30,7 @@
     <!-- Custom PDF UI -->
     <link href="<?= base_url('assets/css/pdf-tools.css') ?>" rel="stylesheet">
 </head>
+
 
 <body id="page-top">
 
