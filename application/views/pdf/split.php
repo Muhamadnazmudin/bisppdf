@@ -51,24 +51,36 @@
                             <!-- Mode -->
                             <label class="font-weight-bold">Range mode:</label>
 
-                            <div class="btn-group d-flex mt-2">
-                                <button type="button" class="btn btn-outline-danger w-50 active">
-                                    Custom
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary w-50">
-                                    Fixed
-                                </button>
-                            </div>
+                                <div class="btn-group d-flex mt-2 mb-3">
+                                    <button type="button" id="btnCustom" class="btn btn-outline-danger w-50 active">
+                                        Custom
+                                    </button>
+                                    <button type="button" id="btnFixed" class="btn btn-outline-secondary w-50">
+                                        Fixed
+                                    </button>
+                                </div>
 
-                            <!-- Range -->
-                            <div class="form-group mt-3">
-                                <input type="text"
-                                       name="range"
-                                       class="form-control"
-                                       placeholder="Contoh: 1-3,5"
-                                       required>
-                            </div>
+                                <input type="hidden" name="mode" id="splitMode" value="custom">
 
+                                <!-- CUSTOM RANGE -->
+                                <div id="customRangeBox" class="form-group">
+                                    <input type="text"
+                                        name="range"
+                                        id="customRangeInput"
+                                        class="form-control"
+                                        placeholder="Contoh: 1-3,5">
+                                </div>
+
+                                <!-- FIXED RANGE -->
+                                <div id="fixedRangeBox" class="form-group d-none">
+                                    <label>Split into page ranges of:</label>
+                                    <input type="number"
+                                        name="fixed_range"
+                                        id="fixedRangeInput"
+                                        class="form-control"
+                                        min="1"
+                                        value="1">
+                                </div>
                             <!-- Submit -->
                             <button class="btn btn-danger btn-lg btn-block mt-4">
                                 Split PDF →
@@ -202,4 +214,40 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
 });
+const btnCustom = document.getElementById('btnCustom');
+const btnFixed = document.getElementById('btnFixed');
+
+const customBox = document.getElementById('customRangeBox');
+const fixedBox = document.getElementById('fixedRangeBox');
+
+const splitMode = document.getElementById('splitMode');
+
+btnCustom.addEventListener('click', function () {
+
+    btnCustom.classList.add('btn-outline-danger','active');
+    btnCustom.classList.remove('btn-outline-secondary');
+
+    btnFixed.classList.remove('btn-outline-danger','active');
+    btnFixed.classList.add('btn-outline-secondary');
+
+    customBox.classList.remove('d-none');
+    fixedBox.classList.add('d-none');
+
+    splitMode.value = 'custom';
+});
+
+btnFixed.addEventListener('click', function () {
+
+    btnFixed.classList.add('btn-outline-danger','active');
+    btnFixed.classList.remove('btn-outline-secondary');
+
+    btnCustom.classList.remove('btn-outline-danger','active');
+    btnCustom.classList.add('btn-outline-secondary');
+
+    fixedBox.classList.remove('d-none');
+    customBox.classList.add('d-none');
+
+    splitMode.value = 'fixed';
+});
+
 </script>

@@ -11,8 +11,8 @@ class Pdf extends CI_Controller {
     {
         parent::__construct();
 
-        $this->temp_path = FCPATH . 'temp' . DIRECTORY_SEPARATOR;
-        // $this->temp_path = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+        // $this->temp_path = FCPATH . 'temp' . DIRECTORY_SEPARATOR;
+        $this->temp_path = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
 
 
         $this->gs = '"C:\Program Files\gs\gs10.06.0\bin\gswin64c.exe"';
@@ -144,7 +144,133 @@ public function delete()
 
     exit;
 }
+public function process_split()
+{
+    $input = $this->upload_file('pdf', 'pdf');
 
+    $originalName = pathinfo($_FILES['pdf']['name'], PATHINFO_FILENAME);
+    $originalName = preg_replace('/[^A-Za-z0-9_\-]/', '_', $originalName);
+
+    $mode = $this->input->post('mode');
+
+    // =====================================================
+    // CUSTOM RANGE
+    // =====================================================
+    if ($mode == 'custom') {
+
+        $range = $this->input->post('range');
+
+        if (empty($range)) {
+            @unlink($input);
+            show_error('Range halaman tidak boleh kosong');
+        }
+
+        $output = $this->temp_path . 'split_' . uniqid() . '.pdf';
+
+        $cmd = $this->pdftk
+            . ' ' . escapeshellarg($input)
+            . ' cat ' . escapeshellarg($range)
+            . ' output '
+            . escapeshellarg($output);
+
+        exec($cmd, $o, $r);
+        @unlink($input);
+
+        if ($r !== 0 || !file_exists($output)) {
+            show_error('Gagal split PDF');
+        }
+
+        $this->force_download($output, $originalName.'_split.pdf');
+    }
+
+    // =====================================================
+    // FIXED RANGE
+    // =====================================================
+    else {
+
+        $fixed = (int) $this->input->post('fixed_range');
+
+        if ($fixed < 1) {
+            @unlink($input);
+            show_error('Nilai fixed range tidak valid');
+        }
+
+        // ambil total halaman
+        $infoCmd = $this->pdftk . ' ' . escapeshellarg($input) . ' dump_data';
+        exec($infoCmd, $infoOutput);
+
+        $totalPages = 0;
+        foreach ($infoOutput as $line) {
+            if (strpos($line, 'NumberOfPages') !== false) {
+                $parts = explode(':', $line);
+                $totalPages = (int) trim($parts[1]);
+                break;
+            }
+        }
+
+        if ($totalPages <= 0) {
+            @unlink($input);
+            show_error('Gagal membaca jumlah halaman');
+        }
+
+        // folder unik
+        $processFolder = $this->temp_path . 'split_' . uniqid() . DIRECTORY_SEPARATOR;
+        mkdir($processFolder, 0777, true);
+
+        $start = 1;
+        $index = 1;
+
+        while ($start <= $totalPages) {
+
+            $end = min($start + $fixed - 1, $totalPages);
+
+            $range = $start . '-' . $end;
+
+            $outputFile = $processFolder . 'part_' . $index . '.pdf';
+
+            $cmd = $this->pdftk
+                . ' ' . escapeshellarg($input)
+                . ' cat ' . $range
+                . ' output '
+                . escapeshellarg($outputFile);
+
+            exec($cmd);
+
+            $start += $fixed;
+            $index++;
+        }
+
+        @unlink($input);
+
+        // buat ZIP
+        $zipPath = $this->temp_path . 'split_' . uniqid() . '.zip';
+        $zip = new ZipArchive();
+        $zip->open($zipPath, ZipArchive::CREATE);
+
+        foreach (glob($processFolder . '*.pdf') as $file) {
+            $zip->addFile($file, basename($file));
+        }
+
+        $zip->close();
+
+        // bersihkan
+        foreach (glob($processFolder . '*.pdf') as $file) {
+            @unlink($file);
+        }
+        rmdir($processFolder);
+
+        // bersihkan buffer
+        if (ob_get_level()) ob_end_clean();
+
+        header('Content-Type: application/zip');
+        header('Content-Disposition: attachment; filename="'.$originalName.'_split.zip"');
+        header('Content-Length: '.filesize($zipPath));
+
+        readfile($zipPath);
+        @unlink($zipPath);
+        exit;
+    }
+}
 
     /* =======================================================
        COMPRESS

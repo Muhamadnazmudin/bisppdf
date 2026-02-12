@@ -11,7 +11,7 @@
          alt="Logo Bispar" 
          class="pdf-logo mb-3">
 
-    <h1>Semua tools PDF Khusus Untuk SMK Negeri 1 Cilimus</h1>
+    <h1>Semua tools PDF Khusus Untuk <br>SMK Negeri 1 Cilimus</h1>
     <p>
         Gabungkan, pisahkan, kompres dan konversi PDF dengan cepat dan mudah.
         Dirancang untuk kebutuhan administrasi sekolah.

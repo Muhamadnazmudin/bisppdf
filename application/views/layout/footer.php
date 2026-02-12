@@ -2,9 +2,32 @@
 
 <footer class="bg-white border-top mt-5 py-4">
     <div class="container text-center small text-muted">
-        © <?= date('Y') ?> <strong>BISP PDF Tools</strong> · Untuk kebutuhan sekolah  
+        © <?= date('Y') ?> 
+        <strong>BISP PDF Tools</strong> · 
+        By 
+        <a href="https://www.profilsaya.my.id" 
+           target="_blank" 
+           rel="noopener noreferrer"
+           class="footer-link">
+           User Kagura
+        </a>
     </div>
 </footer>
+
+<style>
+.footer-link {
+    color: #dc3545;
+    font-weight: 600;
+    text-decoration: none;
+    transition: 0.2s ease;
+}
+
+.footer-link:hover {
+    text-decoration: underline;
+    opacity: 0.8;
+}
+</style>
+
 
 <!-- JS -->
 <script src="<?= base_url('assets/sbadmin2/vendor/jquery/jquery.min.js') ?>"></script>
