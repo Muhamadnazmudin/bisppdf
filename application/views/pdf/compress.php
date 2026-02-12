@@ -93,36 +93,59 @@ compressBtn.onclick = function() {
 
     // 🔥 REAL UPLOAD PROGRESS
     xhr.upload.onprogress = function(e) {
-        if (e.lengthComputable) {
-            let percent = Math.round((e.loaded / e.total) * 100);
-            progressBar.style.width = percent + "%";
-            progressBar.innerText = percent + "%";
+    if (e.lengthComputable) {
+        let percent = Math.round((e.loaded / e.total) * 50);
+        progressBar.style.width = percent + "%";
+        progressBar.innerText = "Procced " + percent + "%";
+    }
+};
+function simulateProcessing() {
+
+    let percent = 50;
+
+    const interval = setInterval(() => {
+
+        percent += 1;
+
+        progressBar.style.width = percent + "%";
+        progressBar.innerText = "Processing " + percent + "%";
+
+        if (percent >= 95) {
+            clearInterval(interval);
         }
-    };
 
-    xhr.onload = function() {
-        compressBtn.disabled = false;
+    }, 200); // speed animasi (atur sesuai selera)
+}
+xhr.onload = function() {
 
-        if (xhr.status === 200) {
+    progressBar.style.width = "100%";
+    progressBar.innerText = "Download ready";
 
-            progressBar.style.width = "100%";
-            progressBar.innerText = "Processing...";
+    // 🔥 ambil filename dari header server
+    let disposition = xhr.getResponseHeader("Content-Disposition");
+    let fileName = "download.pdf";
 
-            // sedikit delay biar smooth
-            setTimeout(() => {
-                progressBar.innerText = "Download ready";
-
-                const blob = new Blob([xhr.response], { type: "application/pdf" });
-                const link = document.createElement("a");
-                link.href = window.URL.createObjectURL(blob);
-                link.download = "compressed.pdf";
-                link.click();
-            }, 500);
-
-        } else {
-            alert("Gagal compress PDF");
+    if (disposition && disposition.includes("filename=")) {
+        let match = disposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) {
+            fileName = match[1];
         }
-    };
+    }
+
+    const blob = new Blob([xhr.response], { type: "application/pdf" });
+    const link = document.createElement("a");
+    link.href = window.URL.createObjectURL(blob);
+    link.download = fileName; // 🔥 pakai nama dari server
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setTimeout(() => {
+        progressBar.innerText = "Download complete";
+    }, 1000);
+};
+
+
 
     xhr.onerror = function() {
         compressBtn.disabled = false;
@@ -131,4 +154,5 @@ compressBtn.onclick = function() {
 
     xhr.send(formData);
 };
+
 </script>

@@ -117,45 +117,84 @@ public function word_to_pdf()
     }
 
     private function force_download($file, $name)
-    {
-        if (!file_exists($file)) {
-            show_error('File tidak ditemukan');
-        }
-
-        header('Content-Type: application/octet-stream');
-        header('Content-Disposition: attachment; filename="'.$name.'"');
-        header('Content-Length: '.filesize($file));
-
-        readfile($file);
-        @unlink($file);
-        exit;
+{
+    if (!file_exists($file)) {
+        show_error('File tidak ditemukan');
     }
+
+    header('Content-Type: application/octet-stream');
+    header('Content-Disposition: attachment; filename="'.$name.'"');
+    header('Content-Length: '.filesize($file));
+
+    readfile($file);
+
+    @unlink($file);
+
+    // 🔥 pastikan lock dilepas
+    $this->release_lock();
+
+    exit;
+}
+
 
     /* =======================================================
        COMPRESS
     ======================================================= */
 
-    public function process_compress()
-    {
-        $input  = $this->upload_file('pdf', 'pdf');
-        $output = $this->temp_path.'compress_'.uniqid().'.pdf';
+   public function process_compress()
+{
+    $this->check_rate_limit(15);
+    $this->acquire_lock();
 
-        $cmd = $this->gs
-            ." -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 "
-            ."-dPDFSETTINGS=/ebook -dNOPAUSE -dQUIET -dBATCH "
-            ."-sOutputFile=".escapeshellarg($output)." "
-            .escapeshellarg($input);
+    $input  = $this->upload_file('pdf', 'pdf');
 
-        exec($cmd, $o, $r);
+    // 🔥 ambil nama asli
+    $originalName = pathinfo($_FILES['pdf']['name'], PATHINFO_FILENAME);
 
-        @unlink($input);
+    // bersihkan karakter aneh
+    $originalName = preg_replace('/[^A-Za-z0-9_\-]/', '_', $originalName);
 
-        if ($r !== 0 || !file_exists($output)) {
-            show_error('Gagal compress PDF');
-        }
+    $output = $this->temp_path.'compress_'.uniqid().'.pdf';
 
-        $this->force_download($output, 'compressed.pdf');
+    $level = $this->input->post('level');
+
+switch ($level) {
+    case 'low':
+        $pdfSetting = '/prepress'; // kualitas tinggi
+        break;
+
+    case 'high':
+        $pdfSetting = '/screen'; // kompres maksimal
+        break;
+
+    default:
+        $pdfSetting = '/ebook'; // medium
+        break;
+}
+
+$cmd = $this->gs
+    ." -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 "
+    ."-dPDFSETTINGS={$pdfSetting} -dNOPAUSE -dQUIET -dBATCH "
+    ."-sOutputFile=".escapeshellarg($output)." "
+    .escapeshellarg($input);
+
+
+    exec($cmd, $o, $r);
+
+    @unlink($input);
+
+    if ($r !== 0 || !file_exists($output)) {
+        $this->release_lock();
+        show_error('Gagal compress PDF');
     }
+
+    // 🔥 nama baru
+   $downloadName = $this->generate_download_name($_FILES['pdf']['name'], 'kompres');
+
+$this->force_download($output, $downloadName);
+
+}
+
 
     /* =======================================================
        MERGE
@@ -317,5 +356,56 @@ public function word_to_pdf()
 
         $this->force_download($output,'converted.pdf');
     }
+private function check_rate_limit($seconds = 15)
+{
+    $ip = $this->input->ip_address();
+    $file = sys_get_temp_dir() . '/pdf_rate_' . md5($ip) . '.txt';
+
+    if (file_exists($file)) {
+
+        $last = (int) file_get_contents($file);
+
+        if ((time() - $last) < $seconds) {
+            show_error('Tunggu ' . ($seconds - (time() - $last)) . ' detik sebelum upload lagi.');
+        }
+    }
+
+    file_put_contents($file, time());
+}
+
+private function acquire_lock()
+{
+    $lock = sys_get_temp_dir() . '/pdf_processing.lock';
+
+    if (file_exists($lock)) {
+
+        $created = filemtime($lock);
+
+        // auto expire 2 menit
+        if ((time() - $created) < 120) {
+            show_error('Server sedang memproses file lain.');
+        }
+
+        unlink($lock);
+    }
+
+    file_put_contents($lock, time());
+}
+
+private function release_lock()
+{
+    $lock = sys_get_temp_dir() . '/pdf_processing.lock';
+    if (file_exists($lock)) unlink($lock);
+}
+private function generate_download_name($originalName, $action, $extension = 'pdf')
+{
+    // ambil nama tanpa extension
+    $name = pathinfo($originalName, PATHINFO_FILENAME);
+
+    // bersihkan karakter aneh
+    $name = preg_replace('/[^A-Za-z0-9_\-]/', '_', $name);
+
+    return $name . '_' . $action . '.' . $extension;
+}
 
 }
