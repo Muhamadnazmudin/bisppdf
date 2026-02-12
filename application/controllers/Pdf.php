@@ -3,147 +3,45 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Pdf extends CI_Controller {
 
-    public function compress()
+    private $temp_path;
+    private $gs;
+    private $soffice;
+
+    public function __construct()
     {
-        $data['title'] = 'Compress PDF';
-        $this->load->view('layout/header', $data);
-        $this->load->view('pdf/compress');
-        $this->load->view('layout/footer');
+        parent::__construct();
+
+        $this->temp_path = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+
+        $this->gs = '"C:\Program Files\gs\gs10.06.0\bin\gswin64c.exe"';
+        $this->soffice = '"C:\Program Files\LibreOffice\program\soffice.exe"';
+
+        // Disable cache biar backend ringan
+        $this->output->set_header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+        $this->output->set_header("Pragma: no-cache");
+        $this->output->set_header("Expires: 0");
+
+        ini_set('memory_limit', '512M');
+        ini_set('max_execution_time', 300);
     }
+/* =======================================================
+   VIEW LOADERS
+======================================================= */
 
-    public function process_compress()
-    {
-        if (empty($_FILES['pdf']['name'])) {
-            show_error('File tidak ditemukan');
-        }
+public function compress()
+{
+    $data['title'] = 'Compress PDF';
+    $this->load->view('layout/header', $data);
+    $this->load->view('pdf/compress');
+    $this->load->view('layout/footer');
+}
 
-        $config['upload_path']   = FCPATH.'storage/uploads/';
-        $config['allowed_types'] = 'pdf';
-        $config['max_size']      = 20480; // 20MB
-        $config['encrypt_name']  = TRUE;
-
-        $this->load->library('upload', $config);
-
-        if (!$this->upload->do_upload('pdf')) {
-            show_error($this->upload->display_errors());
-        }
-
-        $file = $this->upload->data();
-
-        $input  = $file['full_path'];
-        $output = FCPATH.'storage/outputs/compressed_'.$file['file_name'];
-
-        // PATH GHOSTSCRIPT
-        $gs = '"C:\Program Files\gs\gs10.06.0\bin\gswin64c.exe"';
-
-        $cmd = $gs." -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 ".
-               "-dPDFSETTINGS=/ebook -dNOPAUSE -dQUIET -dBATCH ".
-               "-sOutputFile=\"{$output}\" \"{$input}\"";
-
-        exec($cmd, $out, $ret);
-
-        if ($ret !== 0 || !file_exists($output)) {
-            show_error('Gagal compress PDF');
-        }
-
-        // AUTO DOWNLOAD
-        header('Content-Type: application/pdf');
-        header('Content-Disposition: attachment; filename="compressed.pdf"');
-        readfile($output);
-
-        // CLEANUP
-        @unlink($input);
-        @unlink($output);
-    }
-    public function merge()
+public function merge()
 {
     $data['title'] = 'Merge PDF';
     $this->load->view('layout/header', $data);
     $this->load->view('pdf/merge');
     $this->load->view('layout/footer');
-}
-public function process_merge()
-{
-    // validasi minimal file
-    if (empty($_FILES['pdf']['name'][0])) {
-        echo json_encode([
-            'success' => false,
-            'message' => 'Minimal upload 2 file PDF'
-        ]);
-        return;
-    }
-
-    $upload_path = FCPATH . 'storage/uploads/';
-    $output_path = FCPATH . 'storage/outputs/';
-    $files = $_FILES['pdf'];
-    $pdfs  = [];
-
-    // pastikan folder ada
-    if (!is_dir($upload_path)) {
-        mkdir($upload_path, 0777, true);
-    }
-    if (!is_dir($output_path)) {
-        mkdir($output_path, 0777, true);
-    }
-
-    // upload satu per satu
-    for ($i = 0; $i < count($files['name']); $i++) {
-
-        // validasi MIME (simple & aman)
-        if ($files['type'][$i] !== 'application/pdf') {
-            continue;
-        }
-
-        $new_name = uniqid('pdf_') . '.pdf';
-        $target   = $upload_path . $new_name;
-
-        if (move_uploaded_file($files['tmp_name'][$i], $target)) {
-            // penting: escapeshellarg untuk Windows
-            $pdfs[] = escapeshellarg($target);
-        }
-    }
-
-    if (count($pdfs) < 2) {
-        echo json_encode([
-            'success' => false,
-            'message' => 'Minimal 2 file PDF valid'
-        ]);
-        return;
-    }
-
-    // output file
-    $output_name = 'merged_' . time() . '.pdf';
-    $output_file = $output_path . $output_name;
-
-    // PATH GHOSTSCRIPT (WINDOWS)
-    $gs = '"C:\Program Files\gs\gs10.06.0\bin\gswin64c.exe"';
-
-    // command merge
-    $cmd = $gs
-        . ' -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite '
-        . '-sOutputFile=' . escapeshellarg($output_file) . ' '
-        . implode(' ', $pdfs);
-
-    exec($cmd, $out, $ret);
-
-    // hapus file upload sementara
-    foreach ($pdfs as $f) {
-        @unlink(trim($f, "'"));
-    }
-
-    if ($ret !== 0 || !file_exists($output_file)) {
-        echo json_encode([
-            'success' => false,
-            'message' => 'Gagal merge PDF'
-        ]);
-        return;
-    }
-
-    // SUKSES → JSON (TIDAK DOWNLOAD LANGSUNG)
-    echo json_encode([
-        'success'      => true,
-        'download_url' => base_url('pdf/download/' . $output_name)
-    ]);
 }
 
 public function split()
@@ -154,102 +52,6 @@ public function split()
     $this->load->view('layout/footer');
 }
 
-public function process_split()
-{
-    if (empty($_FILES['pdf']['name'])) {
-        show_error('File PDF tidak ditemukan');
-    }
-
-    $range = trim($this->input->post('range'));
-    if ($range === '') {
-        show_error('Range halaman wajib diisi');
-    }
-
-    // upload config
-    $config['upload_path']   = FCPATH.'storage/uploads/';
-    $config['allowed_types'] = 'pdf';
-    $config['max_size']      = 20480;
-    $config['encrypt_name']  = TRUE;
-
-    $this->load->library('upload', $config);
-
-    if (!$this->upload->do_upload('pdf')) {
-        show_error($this->upload->display_errors());
-    }
-
-    $file  = $this->upload->data();
-    $input = $file['full_path'];
-
-    $output_dir = FCPATH.'storage/outputs/';
-    if (!is_dir($output_dir)) {
-        mkdir($output_dir, 0777, true);
-    }
-
-    // PATH GHOSTSCRIPT (WINDOWS)
-    $gs = '"C:\Program Files\gs\gs10.06.0\bin\gswin64c.exe"';
-
-    $ranges = array_map('trim', explode(',', $range));
-    $temp_files = [];
-
-    foreach ($ranges as $i => $r) {
-
-        if (preg_match('/^\d+$/', $r)) {
-            $start = $end = (int)$r;
-        } elseif (preg_match('/^(\d+)-(\d+)$/', $r, $m)) {
-            $start = (int)$m[1];
-            $end   = (int)$m[2];
-        } else {
-            continue; // skip invalid
-        }
-
-        $temp = $output_dir.'split_tmp_'.$i.'.pdf';
-
-        $cmd = $gs
-            .' -sDEVICE=pdfwrite -dNOPAUSE -dBATCH -dQUIET '
-            .'-dFirstPage='.$start.' -dLastPage='.$end.' '
-            .'-sOutputFile='.escapeshellarg($temp).' '
-            .escapeshellarg($input);
-
-        exec($cmd, $out, $ret);
-
-        if ($ret === 0 && file_exists($temp)) {
-            $temp_files[] = escapeshellarg($temp);
-        }
-    }
-
-    if (empty($temp_files)) {
-        show_error('Range halaman tidak valid');
-    }
-
-    // MERGE hasil split
-    $final = $output_dir.'split_'.time().'.pdf';
-
-    $merge_cmd = $gs
-        .' -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite '
-        .'-sOutputFile='.escapeshellarg($final).' '
-        .implode(' ', $temp_files);
-
-    exec($merge_cmd, $out, $ret);
-
-    // cleanup temp
-    foreach ($temp_files as $f) {
-        @unlink(trim($f, "'"));
-    }
-    @unlink($input);
-
-    if ($ret !== 0 || !file_exists($final)) {
-        show_error('Gagal split PDF');
-    }
-
-    // auto download
-    header('Content-Type: application/pdf');
-    header('Content-Disposition: attachment; filename="split.pdf"');
-    readfile($final);
-
-    @unlink($final);
-    exit;
-}
-
 public function rotate()
 {
     $data['title'] = 'Rotate PDF';
@@ -258,63 +60,6 @@ public function rotate()
     $this->load->view('layout/footer');
 }
 
-public function process_rotate()
-{
-    if (empty($_FILES['pdf']['name'])) {
-        show_error('File PDF tidak ditemukan');
-    }
-
-    $rotate = (int) $this->input->post('rotate');
-
-    // mapping rotasi pdftk
-    $map = [
-        90  => 'east',
-        180 => 'south',
-        270 => 'west'
-    ];
-
-    if (!isset($map[$rotate])) {
-        show_error('Rotasi tidak valid');
-    }
-
-    // upload config
-    $config['upload_path']   = FCPATH.'storage/uploads/';
-    $config['allowed_types'] = 'pdf';
-    $config['max_size']      = 20480;
-    $config['encrypt_name']  = TRUE;
-
-    $this->load->library('upload', $config);
-
-    if (!$this->upload->do_upload('pdf')) {
-        show_error($this->upload->display_errors());
-    }
-
-    $file   = $this->upload->data();
-    $input  = $file['full_path'];
-    $output = FCPATH.'storage/outputs/rotate_'.time().'.pdf';
-
-    // pdftk command (SYNTAX BENAR)
-    $cmd = 'pdftk '
-         . escapeshellarg($input)
-         . ' cat 1-end '
-         . $map[$rotate]
-         . ' output '
-         . escapeshellarg($output);
-
-    exec($cmd, $out, $ret);
-
-    if ($ret !== 0 || !file_exists($output)) {
-        show_error('Gagal rotate PDF');
-    }
-
-    header('Content-Type: application/pdf');
-    header('Content-Disposition: attachment; filename="rotated.pdf"');
-    readfile($output);
-
-    @unlink($input);
-    @unlink($output);
-    exit;
-}
 public function remove_page()
 {
     $data['title'] = 'Remove Page PDF';
@@ -323,59 +68,6 @@ public function remove_page()
     $this->load->view('layout/footer');
 }
 
-public function process_remove_page()
-{
-    if (empty($_FILES['pdf']['name'])) {
-        show_error('File PDF tidak ditemukan');
-    }
-
-    $remove = trim($this->input->post('pages'));
-    if ($remove === '') {
-        show_error('Halaman yang dihapus wajib diisi');
-    }
-
-    // upload config
-    $config['upload_path']   = FCPATH.'storage/uploads/';
-    $config['allowed_types'] = 'pdf';
-    $config['max_size']      = 20480;
-    $config['encrypt_name']  = TRUE;
-
-    $this->load->library('upload', $config);
-
-    if (!$this->upload->do_upload('pdf')) {
-        show_error($this->upload->display_errors());
-    }
-
-    $file   = $this->upload->data();
-    $input  = $file['full_path'];
-    $output = FCPATH.'storage/outputs/remove_'.time().'.pdf';
-
-    /**
-     * pdftk logic:
-     * ambil semua halaman
-     * kecuali yang user sebutkan
-     */
-    $cmd = 'pdftk '
-         . escapeshellarg($input)
-         . ' cat 1-end~'
-         . escapeshellarg($remove)
-         . ' output '
-         . escapeshellarg($output);
-
-    exec($cmd, $out, $ret);
-
-    if ($ret !== 0 || !file_exists($output)) {
-        show_error('Gagal remove page PDF');
-    }
-
-    header('Content-Type: application/pdf');
-    header('Content-Disposition: attachment; filename="removed.pdf"');
-    readfile($output);
-
-    @unlink($input);
-    @unlink($output);
-    exit;
-}
 public function image_to_pdf()
 {
     $data['title'] = 'Image to PDF';
@@ -384,62 +76,6 @@ public function image_to_pdf()
     $this->load->view('layout/footer');
 }
 
-public function process_image_to_pdf()
-{
-    if (empty($_FILES['image']['name'][0])) {
-        show_error('Tidak ada gambar diupload');
-    }
-
-    $upload_path = FCPATH.'storage/uploads/';
-    $output      = FCPATH.'storage/outputs/image_'.time().'.pdf';
-
-    require_once APPPATH.'third_party/fpdf/fpdf.php';
-    $pdf = new FPDF();
-
-    foreach ($_FILES['image']['name'] as $i => $name) {
-
-        $tmp  = $_FILES['image']['tmp_name'][$i];
-        $ext  = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-
-        // validasi extension
-        if (!in_array($ext, ['jpg', 'jpeg', 'png'])) {
-            continue;
-        }
-
-        // simpan file sementara DENGAN extension
-        $temp_image = $upload_path.uniqid('img_').'.'.$ext;
-        move_uploaded_file($tmp, $temp_image);
-
-        list($w, $h) = getimagesize($temp_image);
-
-        // hitung ukuran halaman
-        $pdf->AddPage();
-        $page_w = $pdf->GetPageWidth() - 20;
-        $page_h = $pdf->GetPageHeight() - 20;
-
-        // resize proporsional
-        $ratio = min($page_w / $w, $page_h / $h);
-        $new_w = $w * $ratio;
-        $new_h = $h * $ratio;
-
-        $x = ($pdf->GetPageWidth() - $new_w) / 2;
-        $y = ($pdf->GetPageHeight() - $new_h) / 2;
-
-        $pdf->Image($temp_image, $x, $y, $new_w, $new_h);
-
-        // hapus file temp
-        @unlink($temp_image);
-    }
-
-    $pdf->Output('F', $output);
-
-    header('Content-Type: application/pdf');
-    header('Content-Disposition: attachment; filename="image.pdf"');
-    readfile($output);
-
-    @unlink($output);
-    exit;
-}
 public function pdf_to_word()
 {
     $data['title'] = 'PDF to Word';
@@ -448,55 +84,6 @@ public function pdf_to_word()
     $this->load->view('layout/footer');
 }
 
-public function process_pdf_to_word()
-{
-    if (empty($_FILES['pdf']['name'])) {
-        show_error('File PDF tidak ditemukan');
-    }
-
-    // upload config
-    $config['upload_path']   = FCPATH.'storage/uploads/';
-    $config['allowed_types'] = 'pdf';
-    $config['max_size']      = 20480;
-    $config['encrypt_name']  = TRUE;
-
-    $this->load->library('upload', $config);
-
-    if (!$this->upload->do_upload('pdf')) {
-        show_error($this->upload->display_errors());
-    }
-
-    $file   = $this->upload->data();
-    $input  = $file['full_path'];
-    $outdir = FCPATH.'storage/outputs/';
-
-    // PATH LIBREOFFICE (FULL PATH)
-    $soffice = '"C:\Program Files\LibreOffice\program\soffice.exe"';
-
-    // convert PDF → DOCX
-    $cmd = $soffice
-         . ' --headless --convert-to docx '
-         . escapeshellarg($input)
-         . ' --outdir '
-         . escapeshellarg($outdir);
-
-    exec($cmd, $out, $ret);
-
-    // hasil docx (LibreOffice pakai nama sama)
-    $output = $outdir.pathinfo($file['file_name'], PATHINFO_FILENAME).'.docx';
-
-    if ($ret !== 0 || !file_exists($output)) {
-        show_error('Gagal convert PDF ke Word');
-    }
-
-    header('Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    header('Content-Disposition: attachment; filename="converted.docx"');
-    readfile($output);
-
-    @unlink($input);
-    @unlink($output);
-    exit;
-}
 public function word_to_pdf()
 {
     $data['title'] = 'Word to PDF';
@@ -505,65 +92,230 @@ public function word_to_pdf()
     $this->load->view('layout/footer');
 }
 
-public function process_word_to_pdf()
-{
-    if (empty($_FILES['doc']['name'])) {
-        show_error('File Word tidak ditemukan');
+    /* =======================================================
+       HELPER
+    ======================================================= */
+
+    private function upload_file($field, $types)
+    {
+        if (empty($_FILES[$field]['name'])) {
+            show_error('File tidak ditemukan');
+        }
+
+        $config['upload_path']   = $this->temp_path;
+        $config['allowed_types'] = $types;
+        $config['max_size']      = 204800; // 200MB
+        $config['encrypt_name']  = TRUE;
+
+        $this->load->library('upload', $config);
+
+        if (!$this->upload->do_upload($field)) {
+            show_error($this->upload->display_errors());
+        }
+
+        return $this->upload->data()['full_path'];
     }
 
-    $config['upload_path']   = FCPATH.'storage/uploads/';
-    $config['allowed_types'] = 'doc|docx';
-    $config['max_size']      = 20480;
-    $config['encrypt_name']  = TRUE;
+    private function force_download($file, $name)
+    {
+        if (!file_exists($file)) {
+            show_error('File tidak ditemukan');
+        }
 
-    $this->load->library('upload', $config);
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="'.$name.'"');
+        header('Content-Length: '.filesize($file));
 
-    if (!$this->upload->do_upload('doc')) {
-        show_error($this->upload->display_errors());
+        readfile($file);
+        @unlink($file);
+        exit;
     }
 
-    $file   = $this->upload->data();
-    $input  = $file['full_path'];
-    $outdir = FCPATH.'storage/outputs/';
+    /* =======================================================
+       COMPRESS
+    ======================================================= */
 
-    // LibreOffice (FULL PATH)
-    $soffice = '"C:\Program Files\LibreOffice\program\soffice.exe"';
+    public function process_compress()
+    {
+        $input  = $this->upload_file('pdf', 'pdf');
+        $output = $this->temp_path.'compress_'.uniqid().'.pdf';
 
-    $cmd = $soffice
-         . ' --headless --convert-to pdf '
-         . escapeshellarg($input)
-         . ' --outdir '
-         . escapeshellarg($outdir);
+        $cmd = $this->gs
+            ." -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 "
+            ."-dPDFSETTINGS=/ebook -dNOPAUSE -dQUIET -dBATCH "
+            ."-sOutputFile=".escapeshellarg($output)." "
+            .escapeshellarg($input);
 
-    exec($cmd, $out, $ret);
+        exec($cmd, $o, $r);
 
-    $output = $outdir.pathinfo($file['file_name'], PATHINFO_FILENAME).'.pdf';
+        @unlink($input);
 
-    if ($ret !== 0 || !file_exists($output)) {
-        show_error('Gagal convert Word ke PDF');
+        if ($r !== 0 || !file_exists($output)) {
+            show_error('Gagal compress PDF');
+        }
+
+        $this->force_download($output, 'compressed.pdf');
     }
 
-    header('Content-Type: application/pdf');
-    header('Content-Disposition: attachment; filename="converted.pdf"');
-    readfile($output);
+    /* =======================================================
+       MERGE
+    ======================================================= */
 
-    @unlink($input);
-    @unlink($output);
-    exit;
-}
-public function download($filename)
-{
-    $path = FCPATH . 'storage/outputs/' . $filename;
+    public function process_merge()
+    {
+        if (empty($_FILES['pdf']['name'][0])) {
+            show_error('Minimal 2 file');
+        }
 
-    if (!file_exists($path)) {
-        show_error('File tidak ditemukan');
+        $files = $_FILES['pdf'];
+        $pdfs  = [];
+
+        for ($i=0;$i<count($files['name']);$i++) {
+
+            if ($files['type'][$i] !== 'application/pdf') continue;
+
+            $tmp = $this->temp_path.uniqid('merge_').'.pdf';
+            move_uploaded_file($files['tmp_name'][$i], $tmp);
+            $pdfs[] = escapeshellarg($tmp);
+        }
+
+        if (count($pdfs) < 2) show_error('Minimal 2 file valid');
+
+        $output = $this->temp_path.'merged_'.uniqid().'.pdf';
+
+        $cmd = $this->gs
+            .' -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite '
+            .' -sOutputFile='.escapeshellarg($output).' '
+            .implode(' ', $pdfs);
+
+        exec($cmd, $o, $r);
+
+        foreach ($pdfs as $f) @unlink(trim($f,"'"));
+
+        if ($r !== 0 || !file_exists($output)) {
+            show_error('Gagal merge');
+        }
+
+        $this->force_download($output, 'merged.pdf');
     }
 
-    $this->load->helper('download');
+    /* =======================================================
+       ROTATE
+    ======================================================= */
 
-    // force download dengan header benar
-    force_download($path, NULL);
-}
+    public function process_rotate()
+    {
+        $rotate = (int)$this->input->post('rotate');
 
+        $map = [90=>'east',180=>'south',270=>'west'];
+        if (!isset($map[$rotate])) show_error('Rotasi tidak valid');
+
+        $input  = $this->upload_file('pdf', 'pdf');
+        $output = $this->temp_path.'rotate_'.uniqid().'.pdf';
+
+        $cmd = 'pdftk '
+            .escapeshellarg($input)
+            .' cat 1-end '
+            .$map[$rotate]
+            .' output '
+            .escapeshellarg($output);
+
+        exec($cmd, $o, $r);
+
+        @unlink($input);
+
+        if ($r !== 0 || !file_exists($output)) {
+            show_error('Gagal rotate');
+        }
+
+        $this->force_download($output, 'rotated.pdf');
+    }
+
+    /* =======================================================
+       IMAGE → PDF
+    ======================================================= */
+
+    public function process_image_to_pdf()
+    {
+        require_once APPPATH.'third_party/fpdf/fpdf.php';
+
+        if (empty($_FILES['image']['name'][0])) {
+            show_error('Tidak ada gambar');
+        }
+
+        $pdf = new FPDF();
+
+        foreach ($_FILES['image']['name'] as $i=>$name) {
+
+            $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+            if (!in_array($ext,['jpg','jpeg','png'])) continue;
+
+            $tmp = $this->temp_path.uniqid('img_').'.'.$ext;
+            move_uploaded_file($_FILES['image']['tmp_name'][$i], $tmp);
+
+            list($w,$h)=getimagesize($tmp);
+
+            $pdf->AddPage();
+            $ratio=min(190/$w,270/$h);
+            $pdf->Image($tmp,10,10,$w*$ratio,$h*$ratio);
+
+            @unlink($tmp);
+        }
+
+        $output=$this->temp_path.'image_'.uniqid().'.pdf';
+        $pdf->Output('F',$output);
+
+        $this->force_download($output,'image.pdf');
+    }
+
+    /* =======================================================
+       PDF → WORD
+    ======================================================= */
+
+    public function process_pdf_to_word()
+    {
+        $input = $this->upload_file('pdf','pdf');
+
+        $cmd = $this->soffice
+            .' --headless --convert-to docx '
+            .escapeshellarg($input)
+            .' --outdir '
+            .escapeshellarg($this->temp_path);
+
+        exec($cmd,$o,$r);
+
+        $output=$this->temp_path.pathinfo($input,PATHINFO_FILENAME).'.docx';
+
+        @unlink($input);
+
+        if ($r!==0||!file_exists($output)) show_error('Gagal convert');
+
+        $this->force_download($output,'converted.docx');
+    }
+
+    /* =======================================================
+       WORD → PDF
+    ======================================================= */
+
+    public function process_word_to_pdf()
+    {
+        $input=$this->upload_file('doc','doc|docx');
+
+        $cmd=$this->soffice
+            .' --headless --convert-to pdf '
+            .escapeshellarg($input)
+            .' --outdir '
+            .escapeshellarg($this->temp_path);
+
+        exec($cmd,$o,$r);
+
+        $output=$this->temp_path.pathinfo($input,PATHINFO_FILENAME).'.pdf';
+
+        @unlink($input);
+
+        if($r!==0||!file_exists($output)) show_error('Gagal convert');
+
+        $this->force_download($output,'converted.pdf');
+    }
 
 }

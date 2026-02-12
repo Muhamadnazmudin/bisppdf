@@ -1,195 +1,134 @@
-<div class="container-fluid py-5">
+<div class="container py-5">
 
-    <!-- ================= HERO SCREEN (BEFORE UPLOAD) ================= -->
-    <div id="uploadScreen" class="text-center">
-
-        <h1 class="mb-3 font-weight-bold">Compress PDF file</h1>
-        <p class="text-muted mb-4">
-            Reduce PDF file size while keeping good quality.
-        </p>
-
-        <label class="btn btn-danger btn-lg px-5 shadow">
-            Select PDF file
-            <input type="file"
-                   id="pdfFile"
-                   accept="application/pdf"
-                   hidden>
-        </label>
-
-        <p class="mt-3 text-muted">or drop PDF here</p>
-
+    <div class="text-center mb-5">
+        <h1 class="font-weight-bold">Compress PDF</h1>
+        <p class="text-muted">Reduce PDF size while keeping quality.</p>
     </div>
 
+    <div class="card shadow-sm p-5 text-center">
 
-    <!-- ================= EDITOR SCREEN (AFTER UPLOAD) ================= -->
-    <div id="editorScreen" class="d-none">
+        <!-- Upload Area -->
+        <input type="file" id="pdfFile" accept="application/pdf" hidden>
 
-        <div class="row">
+        <button id="selectBtn" class="btn btn-danger btn-lg px-5">
+            Select PDF File
+        </button>
 
-            <!-- LEFT SIDE PREVIEW -->
-            <div class="col-lg-8">
-                <div class="preview-wrapper p-3 bg-light rounded">
-                    <div id="pagesContainer" class="row"></div>
-                </div>
-            </div>
+        <div id="fileInfo" class="mt-4 d-none">
+            <h5 id="fileName"></h5>
+            <small class="text-muted" id="fileSize"></small>
+        </div>
 
-            <!-- RIGHT SIDE PANEL -->
-            <div class="col-lg-4">
-                <div class="card shadow border-0 sticky-top" style="top:20px;">
-                    <div class="card-body p-4">
+        <!-- Compression Option -->
+        <div class="mt-4 d-none" id="optionsBox">
+            <select id="compressionLevel" class="form-control w-50 mx-auto">
+                <option value="low">Low Compression (Best Quality)</option>
+                <option value="medium" selected>Medium Compression</option>
+                <option value="high">High Compression (Smallest Size)</option>
+            </select>
 
-                        <h4 class="mb-4 text-center">Compression Level</h4>
+            <button id="compressBtn" class="btn btn-danger btn-lg mt-4 px-5">
+                Compress PDF
+            </button>
+        </div>
 
-                        <form action="<?= base_url('pdf/process_compress') ?>"
-                              method="post"
-                              enctype="multipart/form-data"
-                              id="compressForm">
-
-                            <!-- hidden real file -->
-                            <input type="file" name="pdf" id="realFileInput" hidden required>
-
-                            <!-- Compression Options -->
-                            <label class="font-weight-bold">Choose quality:</label>
-
-                            <div class="form-group mt-3">
-                                <select name="level" class="form-control">
-                                    <option value="low">Low Compression (Best Quality)</option>
-                                    <option value="medium" selected>Medium Compression</option>
-                                    <option value="high">High Compression (Smaller File)</option>
-                                </select>
-                            </div>
-
-                            <!-- Submit -->
-                            <button class="btn btn-danger btn-lg btn-block mt-4">
-                                Compress PDF →
-                            </button>
-
-                        </form>
-
-                    </div>
-                </div>
-            </div>
-
+        <!-- Progress -->
+        <div class="progress mt-4 d-none" style="height:25px;" id="progressBox">
+            <div id="progressBar"
+                 class="progress-bar progress-bar-striped progress-bar-animated"
+                 role="progressbar"
+                 style="width: 0%">0%</div>
         </div>
 
     </div>
 
 </div>
-
-<style>
-.preview-wrapper {
-    min-height: 600px;
-}
-
-.page-box {
-    background: #fff;
-    border: 1px dashed #ccc;
-    padding: 10px;
-    margin-bottom: 20px;
-    text-align: center;
-    border-radius: 8px;
-    transition: 0.2s;
-}
-
-.page-box:hover {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    transform: translateY(-2px);
-}
-
-.page-number {
-    font-size: 13px;
-    color: #555;
-    margin-top: 5px;
-}
-</style>
-
-<!-- PDF JS -->
-<script src="<?= base_url('assets/pdfjs/pdf.js') ?>"></script>
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-    "<?= base_url('assets/pdfjs/pdf.worker.js') ?>";
-</script>
+const selectBtn = document.getElementById('selectBtn');
+const fileInput = document.getElementById('pdfFile');
+const fileInfo = document.getElementById('fileInfo');
+const fileName = document.getElementById('fileName');
+const fileSize = document.getElementById('fileSize');
+const optionsBox = document.getElementById('optionsBox');
+const compressBtn = document.getElementById('compressBtn');
+const progressBox = document.getElementById('progressBox');
+const progressBar = document.getElementById('progressBar');
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
+let selectedFile = null;
 
-    const uploadScreen = document.getElementById('uploadScreen');
-    const editorScreen = document.getElementById('editorScreen');
-    const fileInput = document.getElementById('pdfFile');
-    const realFileInput = document.getElementById('realFileInput');
-    const container = document.getElementById('pagesContainer');
+selectBtn.onclick = () => fileInput.click();
 
-    fileInput.addEventListener('change', function () {
+fileInput.onchange = function() {
 
-        const file = this.files[0];
-        if (!file || file.type !== 'application/pdf') return;
+    selectedFile = this.files[0];
+    if (!selectedFile) return;
 
-        // copy ke input asli
-        const dataTransfer = new DataTransfer();
-        dataTransfer.items.add(file);
-        realFileInput.files = dataTransfer.files;
+    fileName.innerText = selectedFile.name;
+    fileSize.innerText = (selectedFile.size / (1024*1024)).toFixed(2) + " MB";
 
-        // hide hero, show editor
-        uploadScreen.classList.add('d-none');
-        editorScreen.classList.remove('d-none');
+    fileInfo.classList.remove('d-none');
+    optionsBox.classList.remove('d-none');
 
-        const reader = new FileReader();
+    progressBox.classList.add('d-none');
+    progressBar.style.width = "0%";
+    progressBar.innerText = "0%";
+};
 
-        reader.onload = function () {
+compressBtn.onclick = function() {
 
-            const typedarray = new Uint8Array(this.result);
+    if (!selectedFile) return;
 
-            pdfjsLib.getDocument(typedarray).promise.then(pdf => {
+    const level = document.getElementById('compressionLevel').value;
 
-                container.innerHTML = '';
+    const formData = new FormData();
+    formData.append('pdf', selectedFile);
+    formData.append('level', level);
 
-                for (let i = 1; i <= pdf.numPages; i++) {
-                    renderPage(pdf, i);
-                }
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "<?= base_url('pdf/process_compress') ?>", true);
+    xhr.responseType = "blob";
 
-            }).catch(err => {
-                console.error("PDF load error:", err);
-            });
-        };
+    progressBox.classList.remove('d-none');
+    compressBtn.disabled = true;
 
-        reader.readAsArrayBuffer(file);
-    });
+    // 🔥 REAL UPLOAD PROGRESS
+    xhr.upload.onprogress = function(e) {
+        if (e.lengthComputable) {
+            let percent = Math.round((e.loaded / e.total) * 100);
+            progressBar.style.width = percent + "%";
+            progressBar.innerText = percent + "%";
+        }
+    };
 
-    function renderPage(pdf, pageNumber) {
+    xhr.onload = function() {
+        compressBtn.disabled = false;
 
-        pdf.getPage(pageNumber).then(page => {
+        if (xhr.status === 200) {
 
-            const scale = 0.25;
-            const viewport = page.getViewport({ scale });
+            progressBar.style.width = "100%";
+            progressBar.innerText = "Processing...";
 
-            const col = document.createElement('div');
-            col.className = "col-md-3 mb-4";
+            // sedikit delay biar smooth
+            setTimeout(() => {
+                progressBar.innerText = "Download ready";
 
-            const box = document.createElement('div');
-            box.className = "page-box";
+                const blob = new Blob([xhr.response], { type: "application/pdf" });
+                const link = document.createElement("a");
+                link.href = window.URL.createObjectURL(blob);
+                link.download = "compressed.pdf";
+                link.click();
+            }, 500);
 
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
+        } else {
+            alert("Gagal compress PDF");
+        }
+    };
 
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
+    xhr.onerror = function() {
+        compressBtn.disabled = false;
+        alert("Upload gagal");
+    };
 
-            page.render({
-                canvasContext: ctx,
-                viewport: viewport
-            });
-
-            const number = document.createElement('div');
-            number.className = "page-number";
-            number.innerText = pageNumber;
-
-            box.appendChild(canvas);
-            box.appendChild(number);
-            col.appendChild(box);
-            container.appendChild(col);
-
-        });
-    }
-
-});
+    xhr.send(formData);
+};
 </script>
