@@ -3,6 +3,9 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
+    <link rel="icon" type="image/png" href="<?= base_url('assets/img/logobispar.png') ?>">
+<link rel="shortcut icon" href="<?= base_url('assets/image/logobispar.png') ?>">
+
     <meta charset="utf-8">
     <title><?= isset($title) ? $title . ' | BISP PDF Cilimus' : 'BISP PDF Cilimus - Tools PDF Sekolah' ?></title>
     
@@ -65,7 +68,12 @@
                 <li class="nav-item">
                     <a class="nav-link" href="<?= base_url('pdf/compress') ?>">Compress PDF</a>
                 </li>
-
+                <li class="nav-item">
+                    <a class="nav-link" href="<?= base_url('pdf/delete') ?>">Hapus Pdf</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="<?= base_url('pdf/rotate') ?>">Putar Pdf</a>
+                </li>
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" data-toggle="dropdown">
                         Convert PDF
@@ -73,7 +81,7 @@
                     <div class="dropdown-menu">
                         <a class="dropdown-item" href="#">PDF to Word</a>
                         <a class="dropdown-item" href="#">PDF to Excel</a>
-                        <a class="dropdown-item" href="#">PDF to JPG</a>
+                        <a class="dropdown-item" href="image_to_pdf">JPG to PDF</a>
                     </div>
                 </li>
 
