@@ -11,10 +11,13 @@ class Pdf extends CI_Controller {
     {
         parent::__construct();
 
-        $this->temp_path = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+        $this->temp_path = FCPATH . 'temp' . DIRECTORY_SEPARATOR;
+        // $this->temp_path = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+
 
         $this->gs = '"C:\Program Files\gs\gs10.06.0\bin\gswin64c.exe"';
         $this->soffice = '"C:\Program Files\LibreOffice\program\soffice.exe"';
+        $this->pdftk = '"C:\Program Files (x86)\PDFtk\bin\pdftk.exe"';
 
         // Disable cache biar backend ringan
         $this->output->set_header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
@@ -275,32 +278,70 @@ public function download_merge($file)
     ======================================================= */
 
     public function process_rotate()
-    {
-        $rotate = (int)$this->input->post('rotate');
+{
+    $input  = $this->upload_file('pdf', 'pdf');
+    $output = $this->temp_path . 'rotate_' . uniqid() . '.pdf';
 
-        $map = [90=>'east',180=>'south',270=>'west'];
-        if (!isset($map[$rotate])) show_error('Rotasi tidak valid');
+    $rotationsJson = $this->input->post('rotations');
 
-        $input  = $this->upload_file('pdf', 'pdf');
-        $output = $this->temp_path.'rotate_'.uniqid().'.pdf';
+    if (empty($rotationsJson)) {
+        show_error('Tidak ada data rotasi');
+    }
 
-        $cmd = 'pdftk '
-            .escapeshellarg($input)
-            .' cat 1-end '
-            .$map[$rotate]
-            .' output '
-            .escapeshellarg($output);
+    $rotations = json_decode($rotationsJson, true);
 
-        exec($cmd, $o, $r);
+    if (!is_array($rotations)) {
+        show_error('Format rotasi tidak valid');
+    }
 
-        @unlink($input);
+    $rotationMap = [
+        0   => '',
+        90  => 'right',
+        180 => 'down',
+        270 => 'left'
+    ];
 
-        if ($r !== 0 || !file_exists($output)) {
-            show_error('Gagal rotate');
+    $pagesCommand = '';
+
+    foreach ($rotations as $page => $angle) {
+
+        $angle = (int)$angle;
+
+        if (!isset($rotationMap[$angle])) {
+            @unlink($input);
+            show_error('Rotasi tidak valid');
         }
 
-        $this->force_download($output, 'rotated.pdf');
+        if ($rotationMap[$angle] === '') {
+            $pagesCommand .= $page . ' ';
+        } else {
+            $pagesCommand .= $page . $rotationMap[$angle] . ' ';
+        }
     }
+
+    $cmd = $this->pdftk
+        . ' ' . escapeshellarg($input)
+        . ' cat ' . trim($pagesCommand)
+        . ' output '
+        . escapeshellarg($output);
+
+    exec($cmd, $log);
+
+    @unlink($input);
+
+    if (!file_exists($output)) {
+        echo "<pre>$cmd\n\n";
+        print_r($log);
+        echo "</pre>";
+        show_error('Gagal rotate PDF');
+    }
+
+    $downloadName = $this->generate_download_name($_FILES['pdf']['name'], 'rotate');
+
+    $this->force_download($output, $downloadName);
+}
+
+
 
     /* =======================================================
        IMAGE → PDF

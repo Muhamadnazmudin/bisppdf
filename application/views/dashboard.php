@@ -65,6 +65,14 @@
             <h4>JPG to PDF</h4>
             <p>Konversi gambar JPG atau PNG menjadi PDF.</p>
         </a>
+<!-- Rotate PDF -->
+<a href="<?= base_url('pdf/rotate') ?>" class="tool-card">
+    <div class="icon rotate">
+        <i class="fas fa-sync-alt"></i>
+    </div>
+    <h4>Rotate PDF</h4>
+    <p>Putar semua halaman PDF 90°, 180°, atau 270° dengan cepat.</p>
+</a>
 
        <!-- PDF to Word (COMING SOON) -->
 <div class="tool-card disabled">

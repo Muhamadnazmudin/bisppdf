@@ -163,3 +163,6 @@
 	border-radius: 20px;
 	font-weight: 600;
 }
+.pdf-page .icon.rotate {
+	background: #8b5cf6; /* ungu modern */
+}
