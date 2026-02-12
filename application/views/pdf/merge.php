@@ -56,6 +56,18 @@
     font-size: 14px;
     color: #6b7280;
 }
+.sortable-item {
+    cursor: grab;
+}
+
+.sortable-item:active {
+    cursor: grabbing;
+}
+
+.dragging {
+    opacity: 0.4;
+}
+
 </style>
 
 <div class="container-fluid merge-wrapper">
@@ -183,7 +195,8 @@ function renderPreview() {
 
     filesArray.forEach((file, index) => {
         const col = document.createElement('div');
-        col.className = 'col-lg-2 col-md-3 col-sm-4 mb-4';
+        col.className = 'col-lg-2 col-md-3 col-sm-4 mb-4 sortable-item';
+        col.dataset.index = index;
 
         col.innerHTML = `
             <div class="pdf-thumb card shadow-sm p-2 text-center">
@@ -200,7 +213,27 @@ function renderPreview() {
 
         renderPdfThumbnail(file, `canvas-${index}`);
     });
+
+    initSortable(); // 🔥 aktifkan drag setiap render
 }
+function initSortable() {
+    new Sortable(preview, {
+        animation: 200,
+        ghostClass: 'dragging',
+        onEnd: function (evt) {
+            const oldIndex = evt.oldIndex;
+            const newIndex = evt.newIndex;
+
+            // pindahkan posisi di array
+            const movedItem = filesArray.splice(oldIndex, 1)[0];
+            filesArray.splice(newIndex, 0, movedItem);
+
+            syncInput();
+            renderPreview(); // render ulang sesuai urutan baru
+        }
+    });
+}
+
 
 function removeFile(index) {
     filesArray.splice(index, 1);
@@ -240,7 +273,6 @@ document.getElementById('mergeForm').addEventListener('submit', e => {
 
     document.getElementById('previewWrapper').classList.add('hidden');
     document.getElementById('processingBox').classList.remove('hidden');
-    dropZone.classList.add('processing');
 
     const formData = new FormData();
     filesArray.forEach(f => formData.append('pdf[]', f));
@@ -251,18 +283,25 @@ document.getElementById('mergeForm').addEventListener('submit', e => {
     })
     .then(r => r.json())
     .then(res => {
-        if (!res.success || !res.download_url) {
-            alert('Gagal merge PDF');
+
+        if (!res.success) {
+            alert(res.message || 'Gagal merge');
             return;
         }
 
         document.getElementById('processingBox').classList.add('hidden');
         document.getElementById('resultBox').classList.remove('hidden');
 
-        document.getElementById('downloadBtn').href = res.download_url;
+        const btn = document.getElementById('downloadBtn');
+        btn.href = "<?= base_url('pdf/download_merge/') ?>" + res.file;
         startCountdown(res.download_url);
+    })
+    .catch(err => {
+        alert('Terjadi kesalahan server');
+        console.log(err);
     });
 });
+
 
 /* AUTO DOWNLOAD 30s */
 function startCountdown(url) {
@@ -281,4 +320,6 @@ function startCountdown(url) {
         }
     }, 1000);
 }
+fetch("<?= base_url('pdf/delete_file/') ?>"+url.split('/').pop());
+
 </script>

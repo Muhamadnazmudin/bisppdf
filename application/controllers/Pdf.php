@@ -91,7 +91,13 @@ public function word_to_pdf()
     $this->load->view('pdf/word_to_pdf');
     $this->load->view('layout/footer');
 }
-
+public function delete()
+{
+    $data['title'] = 'Delete PDF';
+    $this->load->view('layout/header', $data);
+    $this->load->view('pdf/delete');
+    $this->load->view('layout/footer');
+}
     /* =======================================================
        HELPER
     ======================================================= */
@@ -201,42 +207,68 @@ $this->force_download($output, $downloadName);
     ======================================================= */
 
     public function process_merge()
-    {
-        if (empty($_FILES['pdf']['name'][0])) {
-            show_error('Minimal 2 file');
-        }
-
-        $files = $_FILES['pdf'];
-        $pdfs  = [];
-
-        for ($i=0;$i<count($files['name']);$i++) {
-
-            if ($files['type'][$i] !== 'application/pdf') continue;
-
-            $tmp = $this->temp_path.uniqid('merge_').'.pdf';
-            move_uploaded_file($files['tmp_name'][$i], $tmp);
-            $pdfs[] = escapeshellarg($tmp);
-        }
-
-        if (count($pdfs) < 2) show_error('Minimal 2 file valid');
-
-        $output = $this->temp_path.'merged_'.uniqid().'.pdf';
-
-        $cmd = $this->gs
-            .' -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite '
-            .' -sOutputFile='.escapeshellarg($output).' '
-            .implode(' ', $pdfs);
-
-        exec($cmd, $o, $r);
-
-        foreach ($pdfs as $f) @unlink(trim($f,"'"));
-
-        if ($r !== 0 || !file_exists($output)) {
-            show_error('Gagal merge');
-        }
-
-        $this->force_download($output, 'merged.pdf');
+{
+    if (empty($_FILES['pdf']['name'][0])) {
+        echo json_encode(['success'=>false,'message'=>'Minimal 2 file']);
+        return;
     }
+
+    $files = $_FILES['pdf'];
+    $pdfs  = [];
+
+    for ($i=0;$i<count($files['name']);$i++) {
+
+        if ($files['type'][$i] !== 'application/pdf') continue;
+
+        $tmp = $this->temp_path.uniqid('merge_').'.pdf';
+        move_uploaded_file($files['tmp_name'][$i], $tmp);
+        $pdfs[] = escapeshellarg($tmp);
+    }
+
+    if (count($pdfs) < 2) {
+        echo json_encode(['success'=>false,'message'=>'Minimal 2 file valid']);
+        return;
+    }
+
+    $outputName = 'merged_'.uniqid().'.pdf';
+    $output = $this->temp_path.$outputName;
+
+    $cmd = $this->gs
+        .' -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite '
+        .' -sOutputFile='.escapeshellarg($output).' '
+        .implode(' ', $pdfs);
+
+    exec($cmd, $o, $r);
+
+    foreach ($pdfs as $f) @unlink(trim($f,"'"));
+
+    if ($r !== 0 || !file_exists($output)) {
+        echo json_encode(['success'=>false,'message'=>'Gagal merge']);
+        return;
+    }
+
+    echo json_encode([
+        'success'=>true,
+        'file'=>$outputName
+    ]);
+}
+public function download_merge($file)
+{
+    $path = $this->temp_path.$file;
+
+    if (!file_exists($path)) {
+        show_404();
+    }
+
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: attachment; filename="merged.pdf"');
+    header('Content-Length: '.filesize($path));
+
+    readfile($path);
+
+    unlink($path); // 🔥 AUTO DELETE SETELAH DOWNLOAD
+    exit;
+}
 
     /* =======================================================
        ROTATE
@@ -406,6 +438,77 @@ private function generate_download_name($originalName, $action, $extension = 'pd
     $name = preg_replace('/[^A-Za-z0-9_\-]/', '_', $name);
 
     return $name . '_' . $action . '.' . $extension;
+}
+public function delete_file($name)
+{
+    $file = FCPATH.'downloads/'.$name;
+    if (file_exists($file)) unlink($file);
+}
+public function process_delete()
+{
+    $input = $this->upload_file('pdf_file', 'pdf');
+
+    $pages = $this->input->post('pages'); // contoh: 2,5,7
+
+    if (empty($pages)) {
+        show_error('Halaman tidak boleh kosong');
+    }
+
+    // ambil total halaman
+    $infoCmd = 'pdftk ' . escapeshellarg($input) . ' dump_data';
+    exec($infoCmd, $infoOutput);
+
+    $totalPages = 0;
+    foreach ($infoOutput as $line) {
+        if (strpos($line, 'NumberOfPages') !== false) {
+            $parts = explode(':', $line);
+            $totalPages = (int) trim($parts[1]);
+            break;
+        }
+    }
+
+    if ($totalPages <= 0) {
+        @unlink($input);
+        show_error('Gagal membaca jumlah halaman');
+    }
+
+    // halaman yang ingin dihapus
+    $deletePages = array_map('intval', explode(',', $pages));
+
+    // buat daftar halaman yang disimpan
+    $keepPages = [];
+
+    for ($i = 1; $i <= $totalPages; $i++) {
+        if (!in_array($i, $deletePages)) {
+            $keepPages[] = $i;
+        }
+    }
+
+    if (empty($keepPages)) {
+        @unlink($input);
+        show_error('Tidak boleh menghapus semua halaman');
+    }
+
+    $output = $this->temp_path . 'delete_' . uniqid() . '.pdf';
+
+    $cmd = 'pdftk '
+        . escapeshellarg($input)
+        . ' cat '
+        . implode(' ', $keepPages)
+        . ' output '
+        . escapeshellarg($output);
+
+    exec($cmd, $o, $r);
+
+    @unlink($input);
+
+    if ($r !== 0 || !file_exists($output)) {
+        show_error('Gagal menghapus halaman');
+    }
+
+    $downloadName = $this->generate_download_name($_FILES['pdf_file']['name'], 'delete');
+
+    $this->force_download($output, $downloadName);
 }
 
 }

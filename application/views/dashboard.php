@@ -4,14 +4,20 @@
 
 <div class="pdf-page">
 
-    <!-- HEADER -->
-    <div class="pdf-header">
-        <h1>Semua tools PDF sekolah dalam satu tempat</h1>
-        <p>
-            Gabungkan, pisahkan, kompres dan konversi PDF dengan cepat dan mudah.
-            Dirancang untuk kebutuhan administrasi sekolah.
-        </p>
-    </div>
+   <!-- HEADER -->
+<div class="pdf-header text-center">
+
+    <img src="<?= base_url('assets/img/logobispar.png') ?>" 
+         alt="Logo Bispar" 
+         class="pdf-logo mb-3">
+
+    <h1>Semua tools PDF Khusus Untuk SMK Negeri 1 Cilimus</h1>
+    <p>
+        Gabungkan, pisahkan, kompres dan konversi PDF dengan cepat dan mudah.
+        Dirancang untuk kebutuhan administrasi sekolah.
+    </p>
+</div>
+
 
     <!-- TOOLS GRID -->
     <div class="tools-grid">
@@ -42,6 +48,14 @@
             <h4>Compress PDF</h4>
             <p>Perkecil ukuran file tanpa mengurangi kualitas signifikan.</p>
         </a>
+<!-- Delete PDF -->
+<a href="<?= base_url('pdf/delete') ?>" class="tool-card">
+    <div class="icon delete-pdf">
+        <i class="fa fa-trash-alt"></i>
+    </div>
+    <h4>Delete PDF</h4>
+    <p>Hapus halaman tertentu dari file PDF dengan cepat dan mudah.</p>
+</a>
 
         <!-- JPG to PDF -->
         <a href="<?= base_url('pdf/image_to_pdf') ?>" class="tool-card">

@@ -40,9 +40,9 @@
 
         <!-- LOGO -->
         <a class="navbar-brand fw-bold" href="<?= base_url() ?>">
-            <span style="color:#ef4444">Bisp</span><i class="fas fa-heart text-danger"></i>
+            <span style="color:#ef4444">Bisp</span>
             <span style="color:#111827">Pdf</span>
-            <small class="text-muted ms-1">-Cilimus</small>
+            <small class="text-muted ms-1">SMKN 1 Cilimus</small>
         </a>
 
         <!-- TOGGLE -->
