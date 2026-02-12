@@ -66,23 +66,26 @@
             <p>Konversi gambar JPG atau PNG menjadi PDF.</p>
         </a>
 
-       <!-- PDF to Word -->
-<a href="<?= base_url('pdf/pdf_to_word') ?>" class="tool-card">
+       <!-- PDF to Word (COMING SOON) -->
+<div class="tool-card disabled">
+    <div class="coming-badge">Coming Soon</div>
     <div class="icon word">
         <i class="fas fa-file-word"></i>
     </div>
     <h4>PDF to Word</h4>
     <p>Konversi file PDF menjadi dokumen Word (.docx).</p>
-</a>
+</div>
 
-<!-- Word to PDF -->
-<a href="<?= base_url('pdf/word_to_pdf') ?>" class="tool-card">
+<!-- Word to PDF (COMING SOON) -->
+<div class="tool-card disabled">
+    <div class="coming-badge">Coming Soon</div>
     <div class="icon pdf">
         <i class="fas fa-file-pdf"></i>
     </div>
     <h4>Word to PDF</h4>
     <p>Ubah dokumen Word menjadi file PDF.</p>
-</a>
+</div>
+
 
     </div>
 

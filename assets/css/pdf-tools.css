@@ -137,3 +137,29 @@
 .pdf-page .icon.delete-pdf {
 	background: linear-gradient(135deg, #ff4d4f, #d9363e);
 }
+/* DISABLED CARD */
+.pdf-page .tool-card.disabled {
+	position: relative;
+	background: #f9fafb !important;
+	color: #9ca3af !important;
+	cursor: not-allowed;
+	box-shadow: none;
+	pointer-events: none;
+}
+
+.pdf-page .tool-card.disabled .icon {
+	background: #cbd5e1 !important;
+}
+
+/* COMING SOON BADGE */
+.coming-badge {
+	position: absolute;
+	top: 12px;
+	right: 12px;
+	background: #111827;
+	color: #fff;
+	font-size: 11px;
+	padding: 4px 8px;
+	border-radius: 20px;
+	font-weight: 600;
+}
