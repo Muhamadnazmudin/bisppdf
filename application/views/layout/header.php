@@ -11,13 +11,18 @@
 
     <!-- SEO -->
     <meta name="description" content="<?= isset($description) ? $description : 'BISP PDF adalah aplikasi pengolah PDF resmi SMK Cilimus. Gabungkan, pisahkan, kompres dan konversi PDF dengan cepat dan mudah.' ?>">
+    <meta property="og:site_name" content="BISP PDF SMKN 1 Cilimus">
+    <meta name="twitter:card" content="summary_large_image">
 
     <!-- Open Graph -->
-    <meta property="og:title" content="<?= isset($title) ? $title . ' | BISP PDF Cilimus' : 'BISP PDF Cilimus' ?>">
-    <meta property="og:description" content="Tools PDF resmi sekolah untuk kebutuhan administrasi dan pembelajaran.">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="<?= current_url() ?>">
-    <meta property="og:image" content="<?= base_url('assets/img/logo.png') ?>">
+<meta property="og:title" content="BISP PDF SMKN 1 Cilimus - Tools PDF Resmi Sekolah">
+<meta property="og:description" content="Gabungkan, pisahkan, kompres dan konversi PDF dengan cepat, aman, dan gratis untuk kebutuhan administrasi & pembelajaran di SMKN 1 Cilimus.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://bisppdf.smkncilimus1.sch.id/">
+<meta property="og:image" content="https://bisppdf.smkncilimus1.sch.id/assets/img/logobispar.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+
 
     <!-- FontAwesome -->
     <link href="<?= base_url('assets/sbadmin2/vendor/fontawesome-free/css/all.min.css') ?>" rel="stylesheet">
