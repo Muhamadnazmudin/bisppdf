@@ -135,9 +135,9 @@
                         Convert
                     </a>
                     <div class="dropdown-menu dropdown-menu-right">
-                        <a class="dropdown-item" href="<?= base_url('pdf/pdf_to_word') ?>">PDF to Word</a>
-                        <a class="dropdown-item" href="<?= base_url('pdf/image_to_pdf') ?>">JPG to PDF</a>
-                        <a class="dropdown-item" href="<?= base_url('pdf/word_to_pdf') ?>">Word to PDF</a>
+                        <a class="dropdown-item" href="<?= base_url('pdf/image_to_pdf') ?>">Image to PDF</a>
+                        <a class="dropdown-item" href="<?= base_url('#') ?>">PDF to Word</a>
+                        <a class="dropdown-item" href="<?= base_url('#') ?>">Word to PDF</a>
                     </div>
                 </li>
 
